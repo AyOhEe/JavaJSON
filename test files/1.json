@@ -1,0 +1,9 @@
+{
+  "string literal" : "Hello, world",
+  "boolean and null" : [true, false, null],
+  "numbers" : [1, -2, 3.0, -3.14159, 2e3, -3E-3],
+  "nested object" : {
+    "holy shit" : "i think this all works??",
+    "escape characters" : ["\\", "\"", "\b", "\f", "\n", "\r", "\t", "\u25C6"]
+  }
+}
