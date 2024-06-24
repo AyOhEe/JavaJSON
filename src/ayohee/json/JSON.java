@@ -24,7 +24,8 @@ public final class JSON {
     }
 
 
-    //this class only contains static helper methods
+    //this class only contains static helper methods.
+    //this protection exists only in case of the constructor being called via reflection.
     private JSON() {
         throw new UnsupportedOperationException("ayohee.json.JSON cannot be instantiated");
     }

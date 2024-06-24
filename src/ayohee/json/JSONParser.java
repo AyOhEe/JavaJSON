@@ -1,269 +1,249 @@
 package ayohee.json;
 
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.Reader;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.io.*;
-import java.util.function.IntPredicate;
 
-final class JSONParser{
-    static Object ParseReader(Reader reader) throws IOException{
-        return new JSONParser(new PeekableReader(reader)).ParseJSON();
+public class JSONParser {
+    static Object ParseReader(Reader reader) throws IOException {
+        return new JSONParser(new ConsumingReader(reader)).ParseJSON();
     }
 
 
-    private final PeekableReader reader;
+    private final ConsumingReader reader;
     private Object result = null;
 
-    private JSONParser(PeekableReader reader){
+    private JSONParser(ConsumingReader reader){
         this.reader = reader;
     }
     private Object ParseJSON() throws IOException {
         if (result != null){
             return result;
         } else {
+            SkipWhitespace();
             result = ParseElement();
             return result;
         }
     }
 
-    private AbstractMap.SimpleEntry<String, Object> ParseMember() throws IOException{
-        SkipToNonWhitespace();
-        if((char)reader.peek() != '\"'){
-            throw new IllegalStateException("JSON ended abruptly after encountering illegally formed member");
-        }
+
+    //NOTE: each "ParseXXX()" method expects reader.current() to be the first character
+    //      of the element, and should consume their last character
+
+    private AbstractMap.SimpleEntry<String, Object> ParseMember() throws IOException {
+        AssertNotEOF();
+        AssertCurrentCharacterEquals('"');
         String key = ParseStringLiteral();
+
+        SkipWhitespace();
+        AssertNotEOF();
+        AssertCurrentCharacterEquals(':');
+        reader.consume();
         SkipWhitespace();
 
-        if((char)reader.read() != ':'){
-            throw new IllegalStateException("JSON ended abruptly after encountering illegally formed member");
-        }
-        //consume the colon
-        reader.read();
-
         Object value = ParseElement();
-
         return new AbstractMap.SimpleEntry<>(key, value);
     }
     private Object ParseElement() throws IOException {
-        SkipWhitespace();
-        int c = reader.peek();
-        if (c == -1){
-            throw new EOFException("JSON ended abruptly while parsing element");
-        }
+        AssertNotEOF();
+        int c = reader.getCurrent();
 
-        return switch ((char) c) {
-            case '{' -> ParseObject();
-            case '[' -> ParseArray();
-            case '\"' -> ParseStringLiteral();
-            case 't', 'f', 'n' -> ParseBooleanOrNullLiteral();
-            default -> ParseNumberLiteral();
-        };
+        try {
+            return switch ((char) c) {
+                case '{' -> ParseObject();
+                case '[' -> ParseArray();
+                case '\"' -> ParseStringLiteral();
+                case 't' -> ParseExactLiteral("true", true);
+                case 'f' -> ParseExactLiteral("false", false);
+                case 'n' -> ParseExactLiteral("null", null);
+                default -> ParseNumberLiteral();
+            };
+        }
+        catch (Exception e) {
+            throw new IllegalStateException("JSON parsing ended after failing to parse an element", e);
+        }
     }
 
-
     private HashMap<String, Object> ParseObject() throws IOException {
-        //consume the opening bracket
-        reader.read();
+        AssertNotEOF();
+        AssertCurrentCharacterEquals('{');
+        reader.consume();
 
-        SkipToNonWhitespace();
-        if ((char)reader.peek() == '}'){
-            return new HashMap<>();
-        }
 
         HashMap<String, Object> hashmap = new HashMap<>();
-        while((char)reader.current() != '}'){
+        while ((char)reader.getCurrent() != '}') {
+            SkipWhitespace();
             AbstractMap.SimpleEntry<String, Object> member = ParseMember();
             hashmap.put(member.getKey(), member.getValue());
-            SkipWhitespace();
 
-            //ensure object is either comma-delimited or closed
-            if((char)reader.peek() == '}'){
+            //potential early exit. otherwise, enforce use of commas to separate members
+            SkipWhitespace();
+            if((char)reader.getCurrent() == '}'){
                 break;
             }
-            if((char)reader.current() != ','){
-                throw new IllegalStateException("JSON ended while parsing invalid object");
-            }
-
-            //move to the next member to be parsed
-            reader.read();
+            AssertCurrentCharacterEquals(',');
+            reader.consume();
         }
-        //consume the closing bracket (which is currently in .peek())
-        reader.read();
-        reader.read();
 
+
+        AssertNotEOF();
+        AssertCurrentCharacterEquals('}');
+        reader.consume();
         return hashmap;
     }
     private ArrayList<Object> ParseArray() throws IOException {
-        //consume the opening bracket
-        reader.read();
+        AssertNotEOF();
+        AssertCurrentCharacterEquals('[');
+        reader.consume();
 
-        SkipToNonWhitespace();
-        if ((char)reader.peek() == ']'){
-            return new ArrayList<>();
-        }
 
         ArrayList<Object> array = new ArrayList<>();
-        while((char)reader.current() != ']'){
-            array.add(ParseElement());
+        while ((char)reader.getCurrent() != ']') {
             SkipWhitespace();
+            Object element = ParseElement();
+            array.add(element);
 
-            //ensure array is either comma-delimited or closed
-            if((char)reader.current() == ']'){
+            //potential early exit. otherwise, enforce use of commas to separate elements
+            SkipWhitespace();
+            if((char)reader.getCurrent() == ']'){
                 break;
             }
-            if((char)reader.current() != ','){
-                throw new IllegalStateException("JSON ended while parsing invalid array");
-            }
-
-            //move to the next element to be parsed
-            reader.read();
+            AssertCurrentCharacterEquals(',');
+            reader.consume();
         }
-        //consume the closing bracket
-        reader.read();
 
+
+        AssertNotEOF();
+        AssertCurrentCharacterEquals(']');
+        reader.consume();
         return array;
     }
 
-
-    private Object ParseBooleanOrNullLiteral() throws IOException {
-        String sequence = ReadChars(4);
-        if (sequence == null){
-            throw new EOFException("JSON ended abruptly while parsing literal value");
-        }
-
-        switch (sequence) {
-            case "true":
-                //consume the last letter
-                reader.read();
-                return true;
-            case "null":
-                //consume the last letter
-                reader.read();
-                return null;
-            case "fals":
-                int c = reader.read();
-                if (c == -1) {
-                    throw new EOFException("JSON ended abruptly while parsing literal value");
-                }
-
-                if ((char)c == 'e') {
-                    //consume the last letter
-                    reader.read();
-                    return false;
-                }
-        }
-
-        throw new IllegalStateException("JSON contained invalid literal \"" + sequence + "\"");
-    }
-    private Number ParseNumberLiteral() throws IOException {
-        //the first character of the literal is in reader.peek(), so skip
-        //the contents of .current()
-        reader.read();
-
-        String sequence = ReadUntil((raw) -> {
-            char c = (char)raw;
-            return raw == -1 || Character.isWhitespace(c) || (c == ',' || c == ']' || c == '}');
-        });
-        try {
-            //TODO JSON specific formatter, but this will do for now
-            //toUpperCase is used as the default instance doesn't like 1.23e2, but takes 1.23E2
-            return NumberFormat.getInstance().parse(sequence.toUpperCase());
-        } catch (ParseException e){
-            throw new IllegalStateException("JSON ended abruptly while parsing invalid literal", e);
-        }
-    }
     private String ParseStringLiteral() throws IOException {
-        //consume the opening quote
-        reader.read();
+        AssertNotEOF();
+        AssertCurrentCharacterEquals('"');
+        reader.consume();
+
         StringBuilder sb = new StringBuilder();
-
-        //store the contents into the stringbuilder, observing escaped characters
-        char c = (char)reader.read();
-        while((char)reader.current() != '"' && reader.current() != -1){
-            if(c == '\\'){
-                sb.append(ParseEscapedCharacter());
-            } else{
-                sb.append(c);
-            }
-
-            c = (char)reader.read();
+        while((char)reader.getCurrent() != '"'){
+            sb.append(ParseCharacter());
         }
 
-        if (reader.current() == -1){
-            throw new EOFException("JSON ended abruptly while parsing string literal");
-        }
-        //consume the closing quote
-        reader.read();
-
+        AssertNotEOF();
+        AssertCurrentCharacterEquals('"');
+        reader.consume();
         return sb.toString();
     }
-    private String ParseEscapedCharacter() throws IOException {
-        int c = reader.read();
+    private char ParseCharacter() throws IOException {
+        AssertNotEOF();
+        char c = (char)reader.getCurrent();
+        reader.consume();
 
-        if (c == -1){
-            throw new EOFException("JSON ended abruptly while parsing escaped character");
+        if (c == '\\'){
+            return ParseEscapedCharacter();
         }
+        else{
+            return c;
+        }
+    }
+    private char ParseEscapedCharacter() throws IOException {
+        char c = (char)reader.getCurrent();
+        reader.consume();
 
-        return switch ((char)c) {
-            case '\\' -> "\\";
-            case '\"' -> "\"";
-            case 'b' -> "\b";
-            case 'f' -> "\f";
-            case 'n' -> "\n";
-            case 'r' -> "\r";
-            case 't' -> "\t";
+        return switch (c) {
+            case '\\' -> '\\';
+            case '\"' -> '\"';
+            case 'b' -> '\b';
+            case 'f' -> '\f';
+            case 'n' -> '\n';
+            case 'r' -> '\r';
+            case 't' -> '\t';
             case 'u' -> ParseEscapedUnicodeCharacter();
-            default -> throw new IllegalStateException("JSON ended abruptly after encountering invalid escaped character");
+            default -> throw new IllegalStateException("JSON ended abruptly after encountering invalid escaped character: \\" + (char)reader.getCurrent());
         };
     }
-    private String ParseEscapedUnicodeCharacter() throws IOException {
+    private char ParseEscapedUnicodeCharacter() throws IOException {
         String sequence = ReadChars(4);
-        if (sequence == null){
-            throw new EOFException("JSON ended abruptly while parsing escaped unicode character");
-        }
 
         try {
-            return Character.toString((Integer.parseInt(sequence, 16)));
+            //TODO check when this returns more than one character
+            return Character.toString((Integer.parseInt(sequence, 16))).charAt(0);
         } catch (IllegalArgumentException e){
             throw new IllegalStateException("JSON contained invalid escaped unicode character", e);
         }
     }
 
+    private Object ParseExactLiteral(String literal, Object value) throws IOException {
+        for (char c : literal.toCharArray()){
+            //the conditional will fail on EOF, but this gives better error messages
+            AssertNotEOF();
+            if ((char)reader.getCurrent() != c){
+                throw new IllegalStateException("JSON parsing ended after incorrect match for exact literal: expected " + literal);
+            }
 
-    private void SkipWhitespace() throws IOException {
-        if(!Character.isWhitespace((char)reader.current())) {
-            return;
+            reader.consume();
         }
-        SkipToNonWhitespace();
+
+        return value;
     }
-    private void SkipToNonWhitespace() throws IOException {
-        while(Character.isWhitespace((char)reader.peek())){
-            reader.read();
-        }
-    }
-    private String ReadUntil(IntPredicate test) throws IOException {
+    private Number ParseNumberLiteral() throws IOException{
         StringBuilder sb = new StringBuilder();
-        int raw = reader.current();
-        while(!test.test(raw)){
-            sb.append((char)raw);
-            raw = reader.read();
+        char c = (char)reader.getCurrent();
+        while(c != ',' && c != ']' && c != '}'){
+            AssertNotEOF();
+            sb.append(c);
+
+            reader.consume();
+            c = (char)reader.getCurrent();
         }
 
-        return sb.toString();
+        try {
+            //TODO JSON specific formatter, but this will do for now
+            //toUpperCase is used as the default instance doesn't like 1.23e2, but takes 1.23E2
+            return NumberFormat.getInstance().parse(sb.toString().toUpperCase());
+        } catch (ParseException e){
+            throw new IllegalStateException("JSON ended abruptly while parsing invalid literal", e);
+        }
     }
+
+
+    //utility methods
+    private void SkipWhitespace() throws IOException {
+        while(Character.isWhitespace((char)reader.getCurrent())) {
+            reader.consume();
+        }
+    }
+
+    private void AssertCurrentCharacterEquals(char expected) {
+        AssertCurrentCharacterEquals(expected, "JSON parsing ended after encountering unexpected character");
+    }
+    private void AssertCurrentCharacterEquals(char expected, String message) {
+        if ((char)reader.getCurrent() != expected){
+            throw new IllegalStateException(message);
+        }
+    }
+
+    private void AssertNotEOF() throws IOException {
+        AssertNotEOF("JSON parsing ended after end-of-file reached before clean exit");
+    }
+    private void AssertNotEOF(String message) throws IOException {
+        if(reader.getCurrent() == -1){
+            throw new EOFException(message);
+        }
+    }
+
     private String ReadChars(int count) throws IOException {
         StringBuilder sb = new StringBuilder();
 
         for (int i = 0; i < count; i++){
-            int c = reader.read();;
-            if (c == -1){
-                return null;
-            }
-
-            sb.append((char)c);
+            AssertNotEOF();
+            sb.append((char)reader.getCurrent());
+            reader.consume();
         }
 
         return sb.toString();
