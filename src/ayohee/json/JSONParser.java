@@ -61,6 +61,9 @@ public class JSONParser {
         int c = reader.getCurrent();
 
         try {
+            if (IsValidNumberBeginning((char)c)) {
+                return ParseNumberLiteral();
+            }
             return switch ((char) c) {
                 case '{' -> ParseObject();
                 case '[' -> ParseArray();
@@ -68,7 +71,7 @@ public class JSONParser {
                 case 't' -> ParseExactLiteral("true", true);
                 case 'f' -> ParseExactLiteral("false", false);
                 case 'n' -> ParseExactLiteral("null", null);
-                default -> ParseNumberLiteral();
+                default -> throw new IllegalStateException("JSON parsing ended after encountering invalid element");
             };
         }
         catch (Exception e) {
@@ -154,7 +157,7 @@ public class JSONParser {
         reader.consume();
         return sb.toString();
     }
-    private char ParseCharacter() throws IOException {
+    private String ParseCharacter() throws IOException {
         AssertNotEOF();
         char c = (char)reader.getCurrent();
         reader.consume();
@@ -163,32 +166,32 @@ public class JSONParser {
             return ParseEscapedCharacter();
         }
         else{
-            return c;
+            return Character.toString(c);
         }
     }
-    private char ParseEscapedCharacter() throws IOException {
+    private String ParseEscapedCharacter() throws IOException {
         char c = (char)reader.getCurrent();
         reader.consume();
 
         return switch (c) {
-            case '\\' -> '\\';
-            case '\"' -> '\"';
-            case '/' -> '/';
-            case 'b' -> '\b';
-            case 'f' -> '\f';
-            case 'n' -> '\n';
-            case 'r' -> '\r';
-            case 't' -> '\t';
+            case '\\' -> "\\";
+            case '\"' -> "\"";
+            case '/' -> "/";
+            case 'b' -> "\b";
+            case 'f' -> "\f";
+            case 'n' -> "\n";
+            case 'r' -> "\r";
+            case 't' -> "\t";
             case 'u' -> ParseEscapedUnicodeCharacter();
             default -> throw new IllegalStateException("JSON ended abruptly after encountering invalid escaped character: \\" + (char)reader.getCurrent());
         };
     }
-    private char ParseEscapedUnicodeCharacter() throws IOException {
+    private String ParseEscapedUnicodeCharacter() throws IOException {
         String sequence = ReadChars(4);
 
         try {
             //TODO check when this returns more than one character
-            return Character.toString((Integer.parseInt(sequence, 16))).charAt(0);
+            return Character.toString((Integer.parseInt(sequence, 16)));
         } catch (IllegalArgumentException e){
             throw new IllegalStateException("JSON contained invalid escaped unicode character", e);
         }
@@ -230,6 +233,11 @@ public class JSONParser {
 
 
     //utility methods
+    private boolean IsValidNumberBeginning(char c) {
+        return Character.isDigit(c) || (c == '-');
+    }
+
+
     private void SkipWhitespace() throws IOException {
         while(Character.isWhitespace((char)reader.getCurrent())) {
             reader.consume();

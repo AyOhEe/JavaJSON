@@ -1,6 +1,7 @@
 package ayohee.json;
 
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.io.*;
 
@@ -11,7 +12,7 @@ public final class JSON {
         }
     }
     public static Object Parse(Path datapath) throws IOException {
-        try (BufferedReader reader = Files.newBufferedReader(datapath, Charset.defaultCharset())) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(datapath.toFile()), StandardCharsets.UTF_8))) {
             return Parse(reader);
         }
     }

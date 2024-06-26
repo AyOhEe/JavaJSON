@@ -1,6 +1,7 @@
 import ayohee.json.JSON;
 
 import java.io.EOFException;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Paths;
 
@@ -17,8 +18,12 @@ public class Main {
         catch (IllegalStateException | EOFException e) {
             System.exit(1);
         }
-        catch (IOException e){
+        catch (FileNotFoundException e){
             System.exit(2);
+        }
+        catch (IOException e){
+            e.printStackTrace();
+            System.exit(-1);
         }
     }
 }
