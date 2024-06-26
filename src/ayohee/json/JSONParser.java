@@ -27,6 +27,13 @@ public class JSONParser {
         } else {
             SkipWhitespace();
             result = ParseElement();
+
+            //ensure no trailing data other than whitespace remains
+            SkipWhitespace();
+            if(reader.getCurrent() != -1){
+                throw new IllegalStateException();
+            }
+
             return result;
         }
     }
@@ -73,11 +80,11 @@ public class JSONParser {
         AssertNotEOF();
         AssertCurrentCharacterEquals('{');
         reader.consume();
+        SkipWhitespace();
 
 
         HashMap<String, Object> hashmap = new HashMap<>();
         while ((char)reader.getCurrent() != '}') {
-            SkipWhitespace();
             AbstractMap.SimpleEntry<String, Object> member = ParseMember();
             hashmap.put(member.getKey(), member.getValue());
 
@@ -88,6 +95,10 @@ public class JSONParser {
             }
             AssertCurrentCharacterEquals(',');
             reader.consume();
+
+            //reject commas without members in front
+            SkipWhitespace();
+            AssertCurrentCharacterNotEquals('}');
         }
 
 
@@ -100,11 +111,11 @@ public class JSONParser {
         AssertNotEOF();
         AssertCurrentCharacterEquals('[');
         reader.consume();
+        SkipWhitespace();
 
 
         ArrayList<Object> array = new ArrayList<>();
         while ((char)reader.getCurrent() != ']') {
-            SkipWhitespace();
             Object element = ParseElement();
             array.add(element);
 
@@ -115,6 +126,10 @@ public class JSONParser {
             }
             AssertCurrentCharacterEquals(',');
             reader.consume();
+
+            //reject commas without elements in front
+            SkipWhitespace();
+            AssertCurrentCharacterNotEquals('}');
         }
 
 
@@ -158,6 +173,7 @@ public class JSONParser {
         return switch (c) {
             case '\\' -> '\\';
             case '\"' -> '\"';
+            case '/' -> '/';
             case 'b' -> '\b';
             case 'f' -> '\f';
             case 'n' -> '\n';
@@ -193,13 +209,14 @@ public class JSONParser {
     }
     private Number ParseNumberLiteral() throws IOException{
         StringBuilder sb = new StringBuilder();
-        char c = (char)reader.getCurrent();
-        while(c != ',' && c != ']' && c != '}'){
-            AssertNotEOF();
+        int cRaw = reader.getCurrent();
+        char c = (char)cRaw;
+        while(c != ',' && c != ']' && c != '}' && cRaw != -1){
             sb.append(c);
 
             reader.consume();
-            c = (char)reader.getCurrent();
+            cRaw = reader.getCurrent();
+            c = (char)cRaw;
         }
 
         try {
@@ -224,6 +241,14 @@ public class JSONParser {
     }
     private void AssertCurrentCharacterEquals(char expected, String message) {
         if ((char)reader.getCurrent() != expected){
+            throw new IllegalStateException(message);
+        }
+    }
+    private void AssertCurrentCharacterNotEquals(char expected) {
+        AssertCurrentCharacterNotEquals(expected, "JSON parsing ended after encountering unexpected character");
+    }
+    private void AssertCurrentCharacterNotEquals(char expected, String message) {
+        if ((char)reader.getCurrent() == expected){
             throw new IllegalStateException(message);
         }
     }
