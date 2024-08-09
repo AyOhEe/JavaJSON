@@ -49,9 +49,14 @@ final class JSONEncoder {
         return "{" + String.join(",", asStrings) + "}";
     }
 
-    //TODO escaping strings
     private static String _EscapeString(String str) {
-        return str;
+        return str.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\b", "\\b")
+                .replace("\f", "\\f")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 
     //TODO prettification

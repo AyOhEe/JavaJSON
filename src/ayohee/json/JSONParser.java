@@ -190,7 +190,6 @@ final class JSONParser {
         String sequence = ReadChars(4);
 
         try {
-            //TODO check when this returns more than one character
             return Character.toString((Integer.parseInt(sequence, 16)));
         } catch (IllegalArgumentException e){
             throw new IllegalStateException("JSON contained invalid escaped unicode character", e);
