@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 public class Main {
     public static void main(String[] args) throws Exception {
         if (args.length == 0){
+            System.out.print("No arguments provided. Please provide a file path.");
             System.exit(3);
         }
 
@@ -16,9 +17,12 @@ public class Main {
             System.exit(0);
         }
         catch (IllegalStateException | EOFException e) {
+            System.out.print("Unexpected end to file or invalid file.");
+            e.printStackTrace();
             System.exit(1);
         }
         catch (FileNotFoundException e){
+            System.out.print("File does not exist.");
             System.exit(2);
         }
         catch (IOException e){

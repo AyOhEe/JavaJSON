@@ -4,7 +4,9 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.io.*;
+import java.util.Map;
 
+//obeys https://www.crockford.com/mckeeman.html
 public final class JSON {
     public static Object Parse(Path datapath, Charset encoding) throws IOException {
         try (BufferedReader reader = Files.newBufferedReader(datapath, encoding)) {
@@ -19,9 +21,17 @@ public final class JSON {
     public static Object Parse(String data) throws IOException {
         return Parse(new StringReader(data));
     }
-
     public static Object Parse(Reader reader) throws IOException {
         return JSONParser.ParseReader(reader);
+    }
+
+
+
+    public static String Encode(Object data) {
+        return JSONEncoder.ParseObject(data);
+    }
+    public static String Encode(Object data, boolean pretty) {
+        return JSONEncoder.Prettify(JSONEncoder.ParseObject(data));
     }
 
 

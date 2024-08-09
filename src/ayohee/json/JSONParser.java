@@ -9,7 +9,7 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class JSONParser {
+final class JSONParser {
     static Object ParseReader(Reader reader) throws IOException {
         return new JSONParser(new ConsumingReader(reader)).ParseJSON();
     }
