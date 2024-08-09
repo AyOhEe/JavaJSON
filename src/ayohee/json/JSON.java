@@ -4,7 +4,6 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.io.*;
-import java.util.Map;
 
 //obeys https://www.crockford.com/mckeeman.html
 public final class JSON {

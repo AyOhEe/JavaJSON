@@ -12,7 +12,7 @@
   <component name="ChangeListManager">
     <list default="true" id="56f4b055-8ea6-487d-a3fb-136b63b2aa0d" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ayohee/json/JSONEncoder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/ayohee/json/JSONEncoder.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ayohee/json/JSON.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/ayohee/json/JSON.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/ayohee/json/JSONParser.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/ayohee/json/JSONParser.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

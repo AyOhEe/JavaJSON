@@ -222,7 +222,6 @@ final class JSONParser {
         }
 
         try {
-            //TODO JSON specific formatter, but this will do for now
             //toUpperCase is used as the default instance doesn't like 1.23e2, but takes 1.23E2
             return NumberFormat.getInstance().parse(sb.toString().toUpperCase());
         } catch (ParseException e){
